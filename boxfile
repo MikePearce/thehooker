@@ -1,0 +1,99 @@
+####
+# So, we have three folders
+#	- engni.git - this is the repo we push and checkout from
+#	- engineering-test_$HASH - where we checkout to
+#	- /var/www/engineering-test/ - the live site that we symlink > engineering-test_$HASH
+####
+
+
+hooks:
+    config_vars:
+        execute:
+            # Get the HEAD hash and 
+            HASH: "git rev-parse --short HEAD"
+        plain:
+            ROOT_DIR: "/var/www/your-project-root"
+
+    ## Per branch steps
+    branches:
+        master:
+            config_vars:
+                ENV: "uat"
+            pre-receive:
+            post-receive:
+                - MakeFolder
+                - CheckoutHead
+                - Permissions
+                - SymlinkVendor
+                - SymlinkUploads
+                - ComposerUpdate
+                - ClearAndWarmCache
+                - Symlink
+        live:
+            config_vars:
+                ENV: "live"
+            pre-receive:
+            post-receive:
+                - MakeFolder
+                - CheckoutHead
+                - GetVendor
+                - Permissions
+                - SymlinkUploads
+                - ClearAndWarmCache
+                - Symlink
+
+
+    # Generic steps, use the config_vars array for specifics
+    steps:  
+        # Make a folder from the hASH  
+        MakeFolder:
+            - "mkdir ROOT_DIR/ENV_HASH"
+            - "echo 'Directory ROOT_DIR/ENV_HASH created'"
+
+        # Checkout HEAD into hash_name folder
+        CheckoutHead:
+            - "git --work-tree=ROOT_DIR/ENV_HASH checkout -f"
+            - "echo 'Checkout Done'"
+
+        # Get Vendor Stuff (this takes ages, so don't use it every time.)
+        GetVendor:
+            - "cd ROOT_DIR/ENV_HASH && curl -s http://getcomposer.org/installer | php -- --quiet && unset GIT_DIR && php composer.phar update && php composer.phar install -n"
+
+        # This is so we don't have to do a composer run 
+        SymlinkVendor:
+            - "ln -sf ROOT_DIR/vendor/ ROOT_DIR/ENV_HASH/vendor"
+            - "echo 'Symlinked vendor'"
+
+        SymlinkUploads:
+            - "ln -sf ROOT_DIR/uploads/ ROOT_DIR/ENV/uploads"
+            - "echo 'Symlink uploads done'"
+
+        # Symlink HASH folder from live_site
+        Symlink:
+            #- "ln -sfT ROOT_DIR/ENV_HASH ROOT_DIR/ENV"
+            - "rm -rf ROOT_DIR/ENV; ln -sfF ROOT_DIR/ENV_HASH/ ROOT_DIR/ENV"
+            - "echo 'Symlink Done Docroot'"
+
+        # Set permissions on the symfony2 cache folder
+        Permissions:
+            - "mkdir ROOT_DIR/ENV_HASH/app/cache"
+            - "mkdir ROOT_DIR/ENV_HASH/app/logs"
+            # Server
+            - "setfacl -dR -m u:apache:rwx -m u:$(whoami):rwx ROOT_DIR/ENV_HASH/app/cache ROOT_DIR/ENV_HASH/app/logs"
+            - "setfacl -R -m u:apache:rwx -m u:$(whoami):rwx ROOT_DIR/ENV_HASH/app/cache ROOT_DIR/ENV_HASH/app/logs"
+            # Local
+            #- 'chmod +a "_www allow delete,write,append,file_inherit,directory_inherit" ROOT_DIR/ENV_HASH/app/cache ROOT_DIR/ENV_HASH/app/logs'
+            #- 'chmod +a "`whoami` allow delete,write,append,file_inherit,directory_inherit" ROOT_DIR/ENV_HASH/app/cache ROOT_DIR/ENV_HASH/app/logs'
+            - "echo 'Permissions on app/cache and app/logs set'"
+
+        # We need composer.phar to run in order to generate our autoload stuffs.
+        ComposerUpdate:
+            - "cd ROOT_DIR/ENV_HASH && unset GIT_DIR && cp ../composer.phar .; php composer.phar update"
+
+        # Clear and warm symfony2 cache
+        ClearAndWarmCache:
+            - "cd ROOT_DIR/ENV_HASH; php app/console cache:clear"
+            - "cd ROOT_DIR/ENV_HASH; php app/console cache:warm"
+            - "echo 'Cache cleared and Warmed'"
+
+
