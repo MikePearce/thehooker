@@ -9,7 +9,7 @@ I wanted a way that I could push my Symfony2 project to a remote git repo on my 
 
 Both `hooks.php` and the `post-receive` and `pre-receive` files should be in your .git/hooks directory. You should set the permissions correctly too.
 
-	chmod +x post-receive hooks.php
+	chmod +x post-receive hooks.php post-receive pre-receive
 
 You will also need to get a copy of spyc.php (which is a PHP YAML library), from here: https://github.com/mustangostang/spyc/ and put this in your hooks folder too.
 
