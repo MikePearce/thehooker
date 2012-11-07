@@ -1,0 +1,34 @@
+#!/usr/bin/env php
+<?php
+
+include('hooks/hooks.php');
+include('hooks/spyc.php');
+
+// Save the script name
+$stage = basename($argv[0]);
+
+// Get branch from stdin or argv
+$stdin = trim(file_get_contents('php://stdin'));
+$input = explode(' ', $stdin);
+$refs = explode('/', array_pop($input));
+$branch = array_pop($refs);
+
+// @TODO: Needs cleaning up
+if (empty($branch)) {
+	$refs = explode('/', trim($argv[1]));
+	$branch = array_pop($refs);
+}
+
+// As we created a --bare repo, we need to get the yaml
+// Then, pass it to the yamliser to get an array
+$yaml = shell_exec('git show HEAD:boxfile 2> /dev/null');
+$yaml = Spyc::YAMLLoad($yaml);
+// If yaml is blank, we have nothing to do
+echo "--> ($branch) : [{$stage}]".PHP_EOL;
+if (empty($yaml)) {
+	exit(0);
+}
+
+// Init and run!
+$hooks = new gitHooks($stage, $branch, $yaml);
+$hooks->run();
