@@ -7,11 +7,11 @@ I wanted a way that I could push my Symfony2 project to a remote git repo on my 
 
 ## Installation
 
-Both `hooks.php` and the `post-receive` and `pre-receive` files should be in your .git/hooks directory. You should set the permissions correctly too.
+Symlink `hook` file into .git/hooks directory under a specific hook name. You should set the permissions correctly too.
 
-	chmod +x post-receive hooks.php
+	chmod +x hook
 
-You will also need to get a copy of spyc.php (which is a PHP YAML library), from here: https://github.com/mustangostang/spyc/ and put this in your hooks folder too.
+You will also need to get a copy of spyc.php (which is a PHP YAML library), from here: https://github.com/mustangostang/spyc/ and put this in the hooker folder
 
 You'll need to setup a remote git repo which you can push to also, I used these instructions here: http://sebduggan.com/blog/deploy-your-website-changes-using-git/
 
@@ -27,7 +27,7 @@ But my setup isn't quite so impressive. Take a look at the boxfile in this repo,
 Basically, the `config_vars` section will create vars which are replaced with their name, so I have a var called HASH which is in the `execute` group, meaning it will execute whatever value is in there, then replace any instance of the word HASH in the `steps` below. Variables in the `plain` group are not executed.
 
 ###Branches
-Below that, you have a `branches` block. This should contain any config_vars specific to the branch you're pushing. You also have the post-receive hook in here. I guess you could add other hooks to make this more extensible, but my remote repo will only ever receive pushes (BTW: you can't do a pre-receive hook in here, as it won't have the YAML file before it tries to run it.)
+Below that, you have a `branches` block. This should contain any config_vars specific to the branch you're pushing. You also have the post-receive hook in here. I guess you could add other hooks to make this more extensible, but my remote repo will only ever receive pushes (BTW: if you use a pre-receive hook in here, previous version of the yaml file will be used as the hook runs before data is received)
 
 ###Steps
 Finally, there are the steps. Theses are the actual bit's of code that get called. You may want to replace what is here.
