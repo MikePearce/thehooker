@@ -46,48 +46,60 @@ class gitHooks {
 	 */
 	public function __construct($stage, $branch, array $conf) {
 		$this->stage = $stage;
-		$this->config = $conf;
 		$this->branch = $branch;
+		$this->config = $conf;
+	}
+
+	/**
+	 * The reason I hate PHP so much
+	 * A function to gracefully return an empty array
+	 * @param array $array The array to work on
+	 * @param string $arg subsequent array indexes
+	 * @return array Array
+	 */
+	private static function _a() {
+		$args = func_get_args();
+		$array = array_shift($args);
+		foreach ($args as $index) {
+			if (!isset($array[$index])) return array();
+			if (!is_array($array[$index])) return array();
+			$array = $array[$index];
+		}
+		return $array;
+	}
+
+	private function _buildYamlVars() {
+		$yaml_vars = array();
+		foreach (self::_a($this->config, 'hooks', 'config_vars', 'execute') AS $var => $val) {
+			$yaml_vars[$var] = str_replace("\n", "", shell_exec($val));
+		}
+		foreach (self::_a($this->config, 'hooks', 'config_vars', 'plain') AS $var => $val) {
+			$yaml_vars[$var] = str_replace("\n", "", $val);
+		}
+
+		// Get the branch specific config
+		foreach (self::_a($this->config, 'hooks', 'branches', $this->branch, 'config_vars') AS $var => $val) {
+			$yaml_vars[$var] = str_replace("\n", "", $val);
+		}
+		return $yaml_vars;
 	}
 
 	/**
 	 * Do the thing
 	 **/
 	public function run() {
-
 		// First are there any vars? If so, set them
-		$yaml_vars = array();
-		if (is_array($this->config['hooks']['config_vars'])) {
-			foreach ($this->config['hooks']['config_vars']['execute'] AS $var => $val) {
-				$yaml_vars[$var] = str_replace("\n", "", `$val`);
-			}
-			foreach ($this->config['hooks']['config_vars']['plain'] AS $var => $val) {
-				$yaml_vars[$var] = str_replace("\n", "", $val);
-			}
-		}
+		$yaml_vars = $this->_buildYamlVars();
 
-		// Get the branch specific config
-		if (is_array($this->config['hooks']['branches'][$this->branch]['config_vars'])) {
-			foreach ($this->config['hooks']['branches'][$this->branch]['config_vars'] AS $var => $val) {
-				$yaml_vars[$var] = str_replace("\n", "", $val);
-			}
-		}			
-
-		echo "**************\n**** Running ". $this->stage ." hooks\n**************\n";
-		// Now, loop through the branch steps
-		foreach($this->config['hooks']['branches'][$this->branch][$this->stage] AS $stepname) {
-
-			foreach($this->config['hooks']['steps'][$stepname] AS $hook) {
+		// Now, loop through the branch stepsi
+		foreach(self::_a($this->config, 'hooks', 'branches', $this->branch, $this->stage) AS $stepname) {
+			foreach(self::_a($this->config, 'hooks', 'steps', $stepname) AS $hook) {
 				// Now, see if there are any replacements
 				foreach($yaml_vars AS $var => $val) {
 					$hook = str_replace($var, $val, $hook);
-				}	
-				//echo $hook."\n";
-				echo passthru($hook);	
+				}
+				echo passthru($hook);
 			}
 		}
-		
-		echo "**************\n**** Ended ". $this->stage ." hooks\n**************\n";
-
 	}
 }
