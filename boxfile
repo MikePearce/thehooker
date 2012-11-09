@@ -1,0 +1,36 @@
+# Self-deploying project! Cool!
+hooks:
+    config_vars:
+        execute:
+            # Get the HEAD hash and 
+            __HASH__: "git describe --always"
+            __BRANCH__: "git rev-parse --symbolic-full-name --abbrev-ref HEAD"
+        plain:
+            # Most sensible place to put our hooker
+            __ROOT__: "/usr/hooker"
+            __TEMP__: "/tmp" # Make sure this is set !!!
+
+    branches:
+        master:
+            post-receive:
+                - MakeFolder
+                - CheckoutHeadToTemp
+                - GetSpyc
+                - SymlinkHook
+                - MoveIntoPlace
+
+    # Generic steps, use the config_vars array for specifics
+    steps:  
+        # Make a folder from the HASH 
+        MakeFolder:
+            - "mkdir __TEMP__/__HASH__"
+        CheckoutHeadToTemp:
+            - "git --work-tree=__TEMP__/__HASH__ checkout -f"
+            - "cp -r . __TEMP__/__HASH__/.git"
+        GetSpyc:
+            - "curl http://raw.github.com/mustangostang/spyc/master/Spyc.php > __TEMP__/__HASH__/hooks/spyc.php"
+        SymlinkHook:
+            - "ln -sfT __ROOT__/hook __TEMP__/.git/post-receive"
+        MoveIntoPlace:
+            - "find __ROOT__ -mindepth 1 -delete"
+            - "find __TEMP__/__HASH__ -mindepth 1 -exec mv '{}' __ROOT__/ \;"
